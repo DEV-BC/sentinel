@@ -1,11 +1,13 @@
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Pgvector;
 using Sentinel.Domain;
+using Sentinel.Infrastructure.Identity;
 
 namespace Sentinel.Infrastructure;
 
-public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
+public class AppDbContext(DbContextOptions<AppDbContext> options) : IdentityDbContext<ApplicationUser>(options)
 {
     public DbSet<Runbook> Runbooks => Set<Runbook>();
     public DbSet<Incident> Incidents => Set<Incident>();

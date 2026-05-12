@@ -1,4 +1,6 @@
 ﻿@page "/"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
 @using Microsoft.EntityFrameworkCore
 @using Sentinel.Web.Components.Shared
 @inject AppDbContext Db

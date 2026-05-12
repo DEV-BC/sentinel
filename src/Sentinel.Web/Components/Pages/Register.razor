@@ -1,0 +1,85 @@
+@page "/register"
+@layout AuthLayout
+@rendermode InteractiveServer
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Nav
+
+<PageTitle>Sentinel - Register</PageTitle>
+
+ <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-8 w-full max-w-md space-y-6">
+
+      <div>
+          <h1 class="text-xl font-semibold text-ctp-text">Create account</h1>
+          <p class="text-ctp-muted text-sm mt-1">Join Sentinel</p>
+      </div>
+
+      <EditForm FormName="register" Model="_model" OnValidSubmit="HandleRegister" class="space-y-4">
+          <DataAnnotationsValidator />
+
+          @if (!string.IsNullOrEmpty(_errorMessage))
+          {
+              <p class="text-ctp-red text-sm">@_errorMessage</p>
+          }
+
+          <div class="space-y-1">
+              <label class="text-ctp-subtle text-sm">Display Name</label>
+              <InputText @bind-Value="_model.DisplayName"
+                         class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve" />
+              <ValidationMessage For="() => _model.DisplayName" class="text-ctp-red text-xs" />
+          </div>
+
+          <div class="space-y-1">
+              <label class="text-ctp-subtle text-sm">Email</label>
+              <InputText @bind-Value="_model.Email"
+                         class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve" />
+              <ValidationMessage For="() => _model.Email" class="text-ctp-red text-xs" />
+          </div>
+
+          <div class="space-y-1">
+              <label class="text-ctp-subtle text-sm">Password</label>
+              <InputText @bind-Value="_model.Password" type="password"
+                         class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve" />
+              <ValidationMessage For="() => _model.Password" class="text-ctp-red text-xs" />
+          </div>
+
+          <button type="submit"
+                  class="w-full bg-ctp-mauve text-ctp-base font-semibold py-2 rounded hover:opacity-90 transition-opacity">
+              Create account
+          </button>
+      </EditForm>
+  
+      <p class="text-ctp-muted text-sm text-center">
+          Already have an account?
+          <a href="/login" class="text-ctp-mauve hover:underline">Sign in</a>
+      </p>
+
+  </div>
+
+  @code {
+      private readonly RegisterModel _model = new();
+      private string _errorMessage = string.Empty;
+
+      private async Task HandleRegister()
+      {
+          var user = new ApplicationUser
+          {
+              UserName = _model.Email,
+              Email    = _model.Email,
+              DisplayName = _model.DisplayName
+          };
+
+          var result = await UserManager.CreateAsync(user, _model.Password);
+  
+          if (result.Succeeded)
+              Nav.NavigateTo("/login");
+          else
+              _errorMessage = result.Errors.First().Description;
+      }
+
+      private sealed class RegisterModel
+      {
+          [Required] public string DisplayName { get; set; } = string.Empty;
+          [Required, EmailAddress] public string Email { get; set; } = string.Empty;
+          [Required, MinLength(8)] public string Password { get; set; } = string.Empty;
+      }
+  }

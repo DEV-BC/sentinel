@@ -1,0 +1,76 @@
+@page "/login"
+  @layout AuthLayout
+  @inject SignInManager<ApplicationUser> SignInManager
+  @inject NavigationManager Nav
+
+  <PageTitle>Sentinel — Login</PageTitle>
+
+  <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-8 w-full max-w-md space-y-6">
+
+      <div>
+          <h1 class="text-xl font-semibold text-ctp-text">Sign in</h1>
+          <p class="text-ctp-muted text-sm mt-1">Welcome back to Sentinel</p>
+      </div>
+
+      <EditForm FormName="login" Model="_model" OnValidSubmit="HandleLogin" class="space-y-4">
+          <DataAnnotationsValidator />
+
+          @if (!string.IsNullOrEmpty(_errorMessage))
+          {
+              <p class="text-ctp-red text-sm">@_errorMessage</p>
+          }
+
+          <div class="space-y-1">
+              <label class="text-ctp-subtle text-sm">Email</label>
+              <InputText @bind-Value="_model.Email"
+                         class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve" />
+              <ValidationMessage For="() => _model.Email" class="text-ctp-red text-xs" />
+          </div>
+
+          <div class="space-y-1">
+              <label class="text-ctp-subtle text-sm">Password</label>
+              <InputText @bind-Value="_model.Password" type="password"
+                         class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve" />
+              <ValidationMessage For="() => _model.Password" class="text-ctp-red text-xs" />
+          </div>
+
+          <button type="submit"
+                  class="w-full bg-ctp-mauve text-ctp-base font-semibold py-2 rounded hover:opacity-90 transition-opacity">
+              Sign in
+          </button>
+      </EditForm>
+  
+      <p class="text-ctp-muted text-sm text-center">
+          Don't have an account?
+          <a href="/register" class="text-ctp-mauve hover:underline">Create one</a>
+      </p>
+
+  </div>
+
+  @code {
+      [SupplyParameterFromForm]
+      private LoginModel _model { get; set; } = new();
+      private string _errorMessage = string.Empty;
+
+      private async Task HandleLogin()
+      {
+          var result = await SignInManager.PasswordSignInAsync(
+              _model.Email,
+              _model.Password,
+              isPersistent: false,
+              lockoutOnFailure: false
+          );
+
+          if (result.Succeeded)
+              Nav.NavigateTo("/");
+          else
+              _errorMessage = "Invalid email or password.";
+      }
+
+      private sealed class LoginModel
+      {
+          [Required, EmailAddress] public string Email { get; set; } = string.Empty;
+          [Required] public string Password { get; set; } = string.Empty;
+      }
+  }
+

@@ -29,7 +29,18 @@
             </NavLink>
 
         </nav>
-        
+        <div class="px-3 pb-4 mt-auto">
+            <form method="post" action="/logout">
+                <AntiForgeryToken />
+                <button type="submit"
+                        class="w-full text-left px-3 py-2 rounded text-ctp-muted hover:bg-ctp-surface hover:text-ctp-text transition-colors text-sm">
+                    Sign out
+                </button>
+            </form>
+        </div>
+
+            
+
     </aside>
 
     <!-- Center: Main Content -->
