@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using Sentinel.Infrastructure;
 using Sentinel.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -5,6 +7,11 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
+            o => o.UseVector()
+        ));
 
 var app = builder.Build();
 

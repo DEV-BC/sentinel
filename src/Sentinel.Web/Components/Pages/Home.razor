@@ -1,5 +1,7 @@
 ﻿@page "/"
+@using Microsoft.EntityFrameworkCore
 @using Sentinel.Web.Components.Shared
+@inject AppDbContext Db
 
 <PageTitle>Sentinel — Dashboard</PageTitle>
 
@@ -9,9 +11,9 @@
 
     <div class="grid grid-cols-3 gap-4">
 
-        <StatCard Label="Active Incidents" Value="0" Color="text-ctp-red" />
-        <StatCard Label="Runbooks"         Value="0" Color="text-ctp-blue" />
-        <StatCard Label="Knowledge Base"   Value="0" Color="text-ctp-teal" />
+        <StatCard Label="Active Incidents" Value="@_incidentCount.ToString()" Color="text-ctp-red" />
+        <StatCard Label="Runbooks"         Value="@_runbookCount.ToString()" Color="text-ctp-blue" />
+        <StatCard Label="Knowledge Base"   Value="@_knowledgeCount.ToString()" Color="text-ctp-teal" />
 
     </div>
 
@@ -23,3 +25,16 @@
 
 </div>
 
+@code
+{
+    private int _incidentCount;
+    private int _runbookCount;
+    private int _knowledgeCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _incidentCount = await Db.Incidents.CountAsync();
+        _runbookCount = await Db.Runbooks.CountAsync();
+        _knowledgeCount = await Db.KnowledgeEntries.CountAsync();
+    }
+}
