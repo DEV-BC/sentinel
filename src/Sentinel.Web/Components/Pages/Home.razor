@@ -1,0 +1,25 @@
+﻿@page "/"
+@using Sentinel.Web.Components.Shared
+
+<PageTitle>Sentinel — Dashboard</PageTitle>
+
+<div class="space-y-6">
+
+    <PageHeader Title="Dashboard"/>
+
+    <div class="grid grid-cols-3 gap-4">
+
+        <StatCard Label="Active Incidents" Value="0" Color="text-ctp-red" />
+        <StatCard Label="Runbooks"         Value="0" Color="text-ctp-blue" />
+        <StatCard Label="Knowledge Base"   Value="0" Color="text-ctp-teal" />
+
+    </div>
+
+
+    <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-4">
+        <p class="text-ctp-subtle text-sm font-semibold mb-3">Recent Activity</p>
+        <p class="text-ctp-muted text-sm">No recent activity.</p>
+    </div>
+
+</div>
+

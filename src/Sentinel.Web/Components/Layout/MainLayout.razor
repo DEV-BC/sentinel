@@ -1,0 +1,58 @@
+﻿@inherits LayoutComponentBase
+
+
+
+<div class="flex h-screen overflow-hidden">
+    <!-- Left Sidebar: Navigation -->
+    <aside class="w-64 flex-shrink-0 bg-ctp-mantle border-r border-ctp-surface flex flex-col">
+        <div class="px-4 py-3 border-b border-ctp-surface">
+            <span class="text-ctp-mauve font-semibold text-lg tracking-wide">Sentinel</span>
+        </div>
+        
+        <nav class="flex-1 overflow-y-auto px-2 py-3 space-y-1">
+            <NavLink href="/" Match="NavLinkMatch.All"
+                     class="flex items-center gap-2 px-3 py-2 rounded text-ctp-subtle hover:bg-ctp-surface
+  hover:text-ctp-text transition-colors" ActiveClass="bg-ctp-surface text-ctp-text">
+                Dashboard
+            </NavLink>
+            <NavLink href="/runbooks" Match="NavLinkMatch.Prefix" ActiveClass="bg-ctp-surface text-ctp-text"
+                     class="flex items-center gap-2 px-3 py-2 rounded text-ctp-subtle hover:bg-ctp-surface"
+                     hover:text-ctp-text transition-colors>
+                Runbooks
+            </NavLink>
+            <NavLink href="/incidents"
+                     Match="NavLinkMatch.Prefix"
+                     ActiveClass="bg-ctp-surface text-ctp-text"
+                     class="flex items-center gap-2 px-3 py-2 rounded text-ctp-subtle hover:bg-ctp-surface
+  hover:text-ctp-text transition-colors">
+                Incidents
+            </NavLink>
+
+        </nav>
+        
+    </aside>
+
+    <!-- Center: Main Content -->
+    <main class="flex-1 overflow-y-auto bg-ctp-base px-6 py-4">
+        @Body
+    </main>
+
+    <!-- Right Panel: AI Assistant -->
+    <aside class="w-80 flex-shrink-0 bg-ctp-mantle border-l border-ctp-surface flex flex-col">
+
+        <div class="px-4 py-3 border-b border-ctp-surface">
+            <span class="text-ctp-teal font-semibold">AI Assistant</span>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-3 py-3 text-ctp-muted text-sm">
+            Ask me anything about your infrastructure…
+        </div>
+
+    </aside>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    An unhandled error has occurred.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">🗙</span>
+</div>

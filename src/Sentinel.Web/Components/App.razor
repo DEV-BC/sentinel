@@ -1,0 +1,57 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <ResourcePreloader />
+         <link rel="preconnect" href="https://fonts.googleapis.com">
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>                          
+      <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&d
+  isplay=swap" rel="stylesheet">                                                                    
+                                                                                                    
+      <script src="https://cdn.tailwindcss.com"></script>                                           
+      <script>    
+          tailwind.config = {
+              theme: {
+                  extend: {
+                      colors: {
+                          'ctp-base':    '#1e1e2e',                                                 
+                          'ctp-mantle':  '#181825',
+                          'ctp-crust':   '#11111b',                                                 
+                          'ctp-surface': '#313244',                                                 
+                          'ctp-overlay': '#45475a',
+                          'ctp-muted':   '#6c7086',                                                 
+                          'ctp-subtle':  '#a6adc8',                                                 
+                          'ctp-text':    '#cdd6f4',                                                 
+                          'ctp-pink':    '#f38ba8',                                                 
+                          'ctp-teal':    '#94e2d5',                                                 
+                          'ctp-yellow':  '#f9e2af',
+                          'ctp-blue':    '#89b4fa',                                                 
+                          'ctp-green':   '#a6e3a1',
+                          'ctp-orange':  '#fab387',                                                 
+                          'ctp-red':     '#f38ba8',                                                 
+                          'ctp-mauve':   '#cba6f7',
+                      },                                                                            
+                      fontFamily: {
+                          mono: ['JetBrains Mono', 'Fira Code', 'ui-monospace', 'monospace'],       
+                      },
+                  }                                                                                 
+              }
+          }                                                                                         
+      </script>   
+
+      <link rel="stylesheet" href="@Assets["app.css"]" />                                           
+      <link rel="stylesheet" href="@Assets["Sentinel.Web.styles.css"]" />
+      <ImportMap />                                                                                 
+      <HeadOutlet />                                                                                
+  </head>
+                                                                                                    
+  <body class="font-mono bg-ctp-base text-ctp-text">                                                
+      <Routes />
+      <ReconnectModal />                                                                            
+      <script src="@Assets["_framework/blazor.web.js"]"></script>
+  </body>       
+
+</html>

@@ -1,0 +1,11 @@
+<div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-4">
+    <p class="text-ctp-muted text-sm">@Label</p>
+    <p class="text-3xl font-semibold @Color mt-1">@Value</p>
+</div>
+
+
+@code {
+    [Parameter] public string Label { get; set; } = string.Empty;
+    [Parameter] public string Value { get; set; } = "0";
+    [Parameter] public string Color { get; set; } = "text-ctp-text";
+}
