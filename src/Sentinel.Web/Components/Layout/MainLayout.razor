@@ -1,4 +1,5 @@
-﻿@inherits LayoutComponentBase
+﻿@using Sentinel.Web.Components.Shared
+@inherits LayoutComponentBase
 
 
 
@@ -27,11 +28,16 @@
   hover:text-ctp-text transition-colors">
                 Incidents
             </NavLink>
+            <NavLink href="/knowledge" Match="NavLinkMatch.Prefix"
+                     class="flex items-center gap-2 px-3 py-2 rounded text-ctp-subtle hover:bg-ctp-surface
+  hover:text-ctp-text transition-colors"
+                     ActiveClass="bg-ctp-surface text-ctp-text">Knowledge</NavLink>
+
 
         </nav>
         <div class="px-3 pb-4 mt-auto">
             <form method="post" action="/logout">
-                <AntiForgeryToken />
+                <AntiforgeryToken />
                 <button type="submit"
                         class="w-full text-left px-3 py-2 rounded text-ctp-muted hover:bg-ctp-surface hover:text-ctp-text transition-colors text-sm">
                     Sign out
@@ -55,9 +61,10 @@
             <span class="text-ctp-teal font-semibold">AI Assistant</span>
         </div>
 
-        <div class="flex-1 overflow-y-auto px-3 py-3 text-ctp-muted text-sm">
-            Ask me anything about your infrastructure…
+        <div class="flex-1 overflow-hidden">
+            <AiChat />
         </div>
+
 
     </aside>
 </div>

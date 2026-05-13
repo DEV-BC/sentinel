@@ -1,42 +1,265 @@
 ﻿@page "/"
-@attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
-@using Microsoft.EntityFrameworkCore
 @using Sentinel.Web.Components.Shared
-@inject AppDbContext Db
-
+@attribute [Authorize]
+@inject IRunbookService RunbookService
+@inject IIncidentService IncidentService
+@inject IKnowledgeService KnowledgeService
+  
 <PageTitle>Sentinel — Dashboard</PageTitle>
 
-<div class="space-y-6">
+@{
+    var urgentIncidents = _incidents
+        .Where(i =>
+            (i.Status == IncidentStatus.Open || i.Status == IncidentStatus.Investigating) &&
+            (i.Severity == IncidentSeverity.Critical || i.Severity == IncidentSeverity.High))
+        .OrderByDescending(i => i.Severity)
+        .ToList();
+}
+  
+@if (urgentIncidents.Any())
+{
+    <div class="bg-ctp-mantle border border-ctp-red rounded-lg p-4 space-y-3">
+        <div class="flex items-center justify-between">
+            <span class="text-ctp-red font-semibold text-sm">Active Alerts</span>
+            <span class="text-xs bg-ctp-red text-ctp-base px-2 py-0.5 rounded">
+                @urgentIncidents.Count open
+            </span>
+        </div>
+        <div class="space-y-2">                                                     
+            @foreach (var incident in urgentIncidents)
+            {
+                <div class="flex justify-between items-center gap-2">
+                    <p class="text-ctp-text text-xs flex-1 min-w-0 truncate">@incident.Title</p>
+                    <div class="flex items-center gap-1 flex-shrink-0">
+                        <span class="text-xs px-1.5 py-0.5 rounded @SeverityColor(incident.Severity)">
+                            @incident.Severity
+                        </span>
+                        <span class="text-xs text-ctp-muted">@incident.Status</span>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
 
-    <PageHeader Title="Dashboard"/>
+
+<div class="space-y-6">
+  
+    <PageHeader Title="Dashboard" />
 
     <div class="grid grid-cols-3 gap-4">
-
-        <StatCard Label="Active Incidents" Value="@_incidentCount.ToString()" Color="text-ctp-red" />
-        <StatCard Label="Runbooks"         Value="@_runbookCount.ToString()" Color="text-ctp-blue" />
-        <StatCard Label="Knowledge Base"   Value="@_knowledgeCount.ToString()" Color="text-ctp-teal" />
-
+        <StatCard Label="Open Incidents"
+                  Value="@_incidents.Count(i => i.Status == IncidentStatus.Open || i.Status ==
+                             IncidentStatus.Investigating).ToString()"
+                  Color="text-ctp-red" />
+        <StatCard Label="Total Runbooks"
+                  Value="@_runbooks.Count.ToString()"
+                  Color="text-ctp-blue" />
+        <StatCard Label="Knowledge Entries"
+                  Value="@_knowledgeCount.ToString()"
+                  Color="text-ctp-teal" />
     </div>
+    
+     @{
+      var total            = _incidents.Count > 0 ? _incidents.Count : 1;
+      var openCount        = _incidents.Count(i => i.Status == IncidentStatus.Open);
+      var investigatingCount = _incidents.Count(i => i.Status == IncidentStatus.Investigating);
+      var resolvedCount    = _incidents.Count(i => i.Status == IncidentStatus.Resolved);
+      var closedCount      = _incidents.Count(i => i.Status == IncidentStatus.Closed);
+      var criticalCount    = _incidents.Count(i => i.Severity == IncidentSeverity.Critical);
+      var highCount        = _incidents.Count(i => i.Severity == IncidentSeverity.High);
+      var mediumCount      = _incidents.Count(i => i.Severity == IncidentSeverity.Medium);
+      var lowCount         = _incidents.Count(i => i.Severity == IncidentSeverity.Low);
+  }
 
+  <div class="grid grid-cols-2 gap-4">
+      <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-4 space-y-3">
+          <p class="text-ctp-subtle text-sm font-semibold">Incidents by Status</p>
 
-    <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-4">
-        <p class="text-ctp-subtle text-sm font-semibold mb-3">Recent Activity</p>
-        <p class="text-ctp-muted text-sm">No recent activity.</p>
-    </div>
+          <div class="space-y-1">
+              <div class="flex justify-between text-xs">
+                  <span class="text-ctp-subtle">Open</span>
+                  <span class="text-ctp-muted">@openCount</span>
+              </div>
+              <div class="w-full bg-ctp-surface rounded-full h-1.5">
+                  <div class="bg-ctp-red h-1.5 rounded-full" style="width: @(openCount * 100 / total)%"></div>
+              </div>
+          </div>
+
+          <div class="space-y-1">
+              <div class="flex justify-between text-xs">
+                  <span class="text-ctp-subtle">Investigating</span>
+                  <span class="text-ctp-muted">@investigatingCount</span>
+              </div>
+              <div class="w-full bg-ctp-surface rounded-full h-1.5">
+                  <div class="bg-ctp-yellow h-1.5 rounded-full" style="width: @(investigatingCount * 100 /
+  total)%"></div>
+              </div>
+          </div>
+  
+          <div class="space-y-1">
+              <div class="flex justify-between text-xs">
+                  <span class="text-ctp-subtle">Resolved</span>
+                  <span class="text-ctp-muted">@resolvedCount</span>
+              </div>
+              <div class="w-full bg-ctp-surface rounded-full h-1.5">
+                  <div class="bg-ctp-green h-1.5 rounded-full" style="width: @(resolvedCount * 100 /
+  total)%"></div>
+              </div>
+          </div>
+  
+          <div class="space-y-1">
+              <div class="flex justify-between text-xs">
+                  <span class="text-ctp-subtle">Closed</span>
+                  <span class="text-ctp-muted">@closedCount</span>
+              </div>
+              <div class="w-full bg-ctp-surface rounded-full h-1.5">
+                  <div class="bg-ctp-overlay h-1.5 rounded-full" style="width: @(closedCount * 100 /
+  total)%"></div>
+              </div>
+          </div>
+      </div>
+
+      <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-4 space-y-3">
+          <p class="text-ctp-subtle text-sm font-semibold">Incidents by Severity</p>
+
+          <div class="space-y-1">
+              <div class="flex justify-between text-xs">
+                  <span class="text-ctp-subtle">Critical</span>
+                  <span class="text-ctp-muted">@criticalCount</span>
+              </div>
+              <div class="w-full bg-ctp-surface rounded-full h-1.5">
+                  <div class="bg-ctp-red h-1.5 rounded-full" style="width: @(criticalCount * 100 /
+  total)%"></div>
+              </div>
+          </div>
+  
+          <div class="space-y-1">
+              <div class="flex justify-between text-xs">
+                  <span class="text-ctp-subtle">High</span>
+                  <span class="text-ctp-muted">@highCount</span>
+              </div>
+              <div class="w-full bg-ctp-surface rounded-full h-1.5">
+                  <div class="bg-ctp-peach h-1.5 rounded-full" style="width: @(highCount * 100 /
+  total)%"></div>
+              </div>
+          </div>
+  
+          <div class="space-y-1">
+              <div class="flex justify-between text-xs">
+                  <span class="text-ctp-subtle">Medium</span>
+                  <span class="text-ctp-muted">@mediumCount</span>
+              </div>
+              <div class="w-full bg-ctp-surface rounded-full h-1.5">
+                  <div class="bg-ctp-yellow h-1.5 rounded-full" style="width: @(mediumCount * 100 /
+  total)%"></div>
+              </div>
+          </div>
+  
+          <div class="space-y-1">
+              <div class="flex justify-between text-xs">
+                  <span class="text-ctp-subtle">Low</span>
+                  <span class="text-ctp-muted">@lowCount</span>
+              </div>
+              <div class="w-full bg-ctp-surface rounded-full h-1.5">
+                  <div class="bg-ctp-green h-1.5 rounded-full" style="width: @(lowCount * 100 /
+  total)%"></div>
+              </div>
+          </div>
+      </div>
+  </div>
+
+    <div class="grid grid-cols-2 gap-4">
+      <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-4">
+          <p class="text-ctp-subtle text-sm font-semibold mb-3">Recent Incidents</p>
+          @{
+              var recentIncidents = _incidents.OrderByDescending(i => i.CreatedAt).Take(5).ToList();
+          }
+          @if (!recentIncidents.Any())
+          {
+              <p class="text-ctp-muted text-sm">No incidents yet.</p>
+          }
+          else
+          {
+              <div class="space-y-3">
+                  @foreach (var incident in recentIncidents)
+                  {
+                      <div class="flex justify-between items-center gap-2">
+                          <div class="flex-1 min-w-0">
+                              <p class="text-ctp-text text-xs font-medium truncate">@incident.Title</p>
+                              <p class="text-ctp-overlay text-xs">@incident.CreatedAt.ToString("MMM d")</p>
+                          </div>
+                          <div class="flex items-center gap-1 flex-shrink-0">
+                              <span class="text-xs px-1.5 py-0.5 rounded
+  @SeverityColor(incident.Severity)">@incident.Severity</span>
+                              <span class="text-xs @StatusColor(incident.Status)">@incident.Status</span>
+                          </div>
+                      </div>
+                  }
+              </div>
+          }
+      </div>
+
+      <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-4">
+          <p class="text-ctp-subtle text-sm font-semibold mb-3">Recent Runbooks</p>
+          @{
+              var recentRunbooks = _runbooks.OrderByDescending(r => r.UpdatedAt).Take(5).ToList();
+          }
+          @if (!recentRunbooks.Any())
+          {
+              <p class="text-ctp-muted text-sm">No runbooks yet.</p>
+          }
+          else
+          {
+              <div class="space-y-3">
+                  @foreach (var runbook in recentRunbooks)
+                  {
+                      <div class="flex justify-between items-center gap-2">
+                          <div class="flex-1 min-w-0">
+                              <p class="text-ctp-text text-xs font-medium truncate">@runbook.Title</p>
+                              <p class="text-ctp-overlay text-xs">Updated @runbook.UpdatedAt.ToString("MMMd")</p>
+                          </div>
+                          <span class="text-xs px-1.5 py-0.5 rounded bg-ctp-surface text-ctp-muted
+  flex-shrink-0">@runbook.Status</span>
+                      </div>
+                  }
+              </div>
+          }
+      </div>
+  </div>
+
 
 </div>
 
-@code
-{
-    private int _incidentCount;
-    private int _runbookCount;
+@code {
+    private List<Incident> _incidents = [];
+    private List<Runbook> _runbooks = [];
     private int _knowledgeCount;
 
     protected override async Task OnInitializedAsync()
     {
-        _incidentCount = await Db.Incidents.CountAsync();
-        _runbookCount = await Db.Runbooks.CountAsync();
-        _knowledgeCount = await Db.KnowledgeEntries.CountAsync();
+        _incidents = await IncidentService.GetAllAsync();
+        _runbooks  = await RunbookService.GetAllAsync();
+        _knowledgeCount = (await KnowledgeService.GetAllAsync()).Count;
     }
+    
+    private static string SeverityColor(IncidentSeverity severity) => severity switch
+    {
+        IncidentSeverity.Critical => "bg-ctp-red text-ctp-base",
+        IncidentSeverity.High     => "bg-ctp-peach text-ctp-base",
+        IncidentSeverity.Medium   => "bg-ctp-yellow text-ctp-base",
+        IncidentSeverity.Low      => "bg-ctp-green text-ctp-base",
+        _                         => "bg-ctp-surface text-ctp-subtle",
+    };
+
+    private static string StatusColor(IncidentStatus status) => status switch
+    {
+        IncidentStatus.Open          => "text-ctp-red",
+        IncidentStatus.Investigating => "text-ctp-yellow",
+        IncidentStatus.Resolved      => "text-ctp-green",
+        IncidentStatus.Closed        => "text-ctp-overlay",
+        _                            => "text-ctp-muted",
+    };
+
 }

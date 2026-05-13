@@ -22,16 +22,16 @@
 
           <div class="space-y-1">
               <label class="text-ctp-subtle text-sm">Email</label>
-              <InputText @bind-Value="_model.Email"
+              <InputText @bind-Value="_model!.Email"
                          class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve" />
-              <ValidationMessage For="() => _model.Email" class="text-ctp-red text-xs" />
+              <ValidationMessage For="() => _model!.Email" class="text-ctp-red text-xs" />
           </div>
 
           <div class="space-y-1">
               <label class="text-ctp-subtle text-sm">Password</label>
-              <InputText @bind-Value="_model.Password" type="password"
+              <InputText @bind-Value="_model!.Password" type="password"
                          class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve" />
-              <ValidationMessage For="() => _model.Password" class="text-ctp-red text-xs" />
+              <ValidationMessage For="() => _model!.Password" class="text-ctp-red text-xs" />
           </div>
 
           <button type="submit"
@@ -48,12 +48,18 @@
   </div>
 
   @code {
+
+      protected override void OnInitialized() => _model ??= new();
+      
+
       [SupplyParameterFromForm]
-      private LoginModel _model { get; set; } = new();
+      private LoginModel? _model { get; set; } 
       private string _errorMessage = string.Empty;
 
       private async Task HandleLogin()
       {
+          if (_model is null) return;
+          
           var result = await SignInManager.PasswordSignInAsync(
               _model.Email,
               _model.Password,

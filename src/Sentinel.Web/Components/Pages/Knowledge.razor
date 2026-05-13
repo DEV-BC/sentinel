@@ -1,0 +1,358 @@
+@page "/knowledge"
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.Extensions.AI
+@using Sentinel.Web.Components.Shared
+@rendermode InteractiveServer
+@attribute [Authorize]
+@inject IKnowledgeService KnowledgeService
+@inject IEmbeddingGenerator<string, Embedding<float>> EmbeddingGenerator
+@inject IDocumentExtractor DocumentExtractor
+
+<PageHeader Title="Knowledge Base" />
+
+<div class="space-y-4">
+    <div class="flex justify-between items-center">
+        <p class="text-ctp-muted text-sm">@_entries.Count entry(ies)</p>
+        <div class="flex gap-2">
+            <button @onclick="() => { _showUpload = false; _showForm = !_showForm; }"
+                    class="bg-ctp-mauve text-ctp-base text-sm font-semibold px-4 py-2 rounded hover:opacity-90 transition-opacity">
+                New Entry
+            </button>
+            <button @onclick="() => { _showForm = false; _showUpload = !_showUpload; }"
+                    class="bg-ctp-teal text-ctp-base text-sm font-semibold px-4 py-2 rounded hover:opacity-90 transition-opacity">
+                Upload Document
+            </button>
+        </div>
+    </div>
+
+    @if (_showUpload)
+    {
+        <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-6 space-y-4">
+            <h2 class="text-ctp-text font-semibold">Upload a Document</h2>
+            <p class="text-ctp-muted text-xs">Supported formats: PDF, Word (.docx)</p>
+
+            <div class="border-2 border-dashed border-ctp-overlay rounded-lg p-6 text-center space-y-2">
+                <p class="text-ctp-subtle text-sm">Choose a file to upload</p>
+                <InputFile OnChange="HandleFileSelected" accept=".pdf,.docx"
+                           class="text-ctp-muted text-sm" />
+            </div>
+
+            @if (_selectedFile is not null)
+            {
+                <div class="bg-ctp-surface rounded p-3 flex justify-between items-center">
+                    <div>
+                        <p class="text-ctp-text text-sm font-medium">@_selectedFile.Name</p>
+                        <p class="text-ctp-muted text-xs">@(Math.Round(_selectedFile.Size / 1024.0, 1)) KB</p>
+                    </div>
+                    <span class="text-xs px-2 py-1 rounded bg-ctp-teal text-ctp-base">Ready</span>
+                </div>
+
+                @if (!string.IsNullOrEmpty(_uploadError))
+                {
+                    <p class="text-ctp-red text-sm">@_uploadError</p>
+                }
+
+                <div class="flex gap-2 justify-end">
+                    <button type="button" @onclick="() => { _selectedFile = null; _uploadError = string.Empty; }"
+                            class="text-ctp-muted text-sm px-4 py-2 rounded hover:bg-ctp-surface transition-colors">
+                        Clear
+                    </button>
+                    <button @onclick="HandleUpload" disabled="@_uploading"
+                            class="bg-ctp-teal text-ctp-base text-sm font-semibold px-4 py-2 rounded hover:opacity-90 transition-opacity disabled:opacity-50">
+                        @(_uploading ? "Processing…" : "Process & Save")
+                    </button>
+                </div>
+            }
+        </div>
+    }
+
+    <div class="flex gap-2">
+        <input @bind="_searchQuery" placeholder="Search by meaning…"
+               class="flex-1 bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve" />
+        <button @onclick="HandleSearch" disabled="@_searching"
+                class="bg-ctp-teal text-ctp-base text-sm font-semibold px-4 py-2 rounded hover:opacity-90 transition-opacity disabled:opacity-50">
+            @(_searching ? "Searching…" : "Search")
+        </button>
+        @if (_searchResults is not null)
+        {
+            <button @onclick="ClearSearch"
+                    class="text-ctp-muted text-sm px-3 py-2 rounded hover:bg-ctp-surface transition-colors">
+                Clear
+            </button>
+        }
+    </div>
+
+    @if (_showForm)
+    {
+        <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-6">
+            <h2 class="text-ctp-text font-semibold mb-4">New Knowledge Entry</h2>
+            <EditForm Model="_form" OnValidSubmit="HandleCreate" class="space-y-4">
+                <DataAnnotationsValidator />
+
+                <div class="space-y-1">
+                    <label class="text-ctp-subtle text-sm">Title</label>
+                    <InputText @bind-Value="_form.Title"
+                               class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve" />
+                    <ValidationMessage For="() => _form.Title" class="text-ctp-red text-xs" />
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-ctp-subtle text-sm">Content</label>
+                    <InputTextArea @bind-Value="_form.Content" rows="6"
+                                  class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve resize-none" />
+                    <ValidationMessage For="() => _form.Content" class="text-ctp-red text-xs" />
+                </div>
+
+                <div class="space-y-1">
+                    <label class="text-ctp-subtle text-sm">Source (optional)</label>
+                    <InputText @bind-Value="_form.Source"
+                               class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve" />
+                </div>
+
+                <div class="flex gap-2 justify-end items-center">
+                    @if (_saving)
+                    {
+                        <span class="text-ctp-muted text-xs">Generating embedding…</span>
+                    }
+                    <button type="button" @onclick="() => _showForm = false"
+                            class="text-ctp-muted text-sm px-4 py-2 rounded hover:bg-ctp-surface transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" disabled="@_saving"
+                            class="bg-ctp-mauve text-ctp-base text-sm font-semibold px-4 py-2 rounded hover:opacity-90 transition-opacity disabled:opacity-50">
+                        @(_saving ? "Saving…" : "Save Entry")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+
+    @{
+        var displayList = _searchResults ?? _entries;
+    }
+
+    @if (displayList.Count == 0)
+    {
+        <p class="text-ctp-muted text-sm">
+            @(_searchResults is not null ? "No matching entries found." : "No knowledge entries yet. Add some documentation!")
+        </p>
+    }
+    else
+    {
+        <div class="space-y-2">
+            @foreach (var entry in displayList)
+            {
+                var isExpanded = _expandedId == entry.Id;
+                var isEditing = _editingId == entry.Id;
+
+                <div class="bg-ctp-mantle border border-ctp-surface rounded-lg overflow-hidden">
+                    <div class="p-4 cursor-pointer" @onclick="() => ToggleExpand(entry.Id)">
+                        <div class="flex justify-between items-start gap-3">
+                            <div class="flex-1 min-w-0">
+                                <p class="text-ctp-text font-medium">@entry.Title</p>
+                                @if (!isExpanded)
+                                {
+                                    <p class="text-ctp-muted text-xs mt-1 line-clamp-2">@entry.Content</p>
+                                    @if (!string.IsNullOrEmpty(entry.Source))
+                                    {
+                                        <p class="text-ctp-overlay text-xs mt-1">Source: @entry.Source</p>
+                                    }
+                                }
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0">
+                                <span class="text-xs px-2 py-1 rounded @(entry.Embedding is not null ? "bg-ctp-teal text-ctp-base" : "bg-ctp-surface text-ctp-muted")">
+                                    @(entry.Embedding is not null ? "indexed" : "no embedding")
+                                </span>
+                                <span class="text-ctp-overlay text-xs">@(isExpanded ? "▲" : "▼")</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (isExpanded)
+                    {
+                        <div class="border-t border-ctp-surface px-4 pb-4 space-y-3">
+                            @if (!isEditing)
+                            {
+                                <p class="text-ctp-text text-sm whitespace-pre-wrap pt-3">@entry.Content</p>
+                                @if (!string.IsNullOrEmpty(entry.Source))
+                                {
+                                    <p class="text-ctp-overlay text-xs">Source: @entry.Source</p>
+                                }
+                                <div class="flex justify-end">
+                                    <button @onclick="() => StartEdit(entry)" @onclick:stopPropagation="true"
+                                            class="text-xs text-ctp-mauve hover:underline">
+                                        Edit
+                                    </button>
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="space-y-3 pt-3">
+                                    <div class="space-y-1">
+                                        <label class="text-ctp-subtle text-xs">Title</label>
+                                        <input @bind="_editTitle"
+                                               class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve" />
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-ctp-subtle text-xs">Content</label>
+                                        <textarea @bind="_editContent" rows="6"
+                                                  class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve resize-none"></textarea>
+                                    </div>
+                                    <div class="space-y-1">
+                                        <label class="text-ctp-subtle text-xs">Source (optional)</label>
+                                        <input @bind="_editSource"
+                                               class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve" />
+                                    </div>
+                                    <div class="flex gap-2 justify-end">
+                                        <button @onclick="() => _editingId = null" @onclick:stopPropagation="true"
+                                                class="text-ctp-muted text-xs px-3 py-1 rounded hover:bg-ctp-surface transition-colors">
+                                            Cancel
+                                        </button>
+                                        <button @onclick="() => SaveEdit(entry)" @onclick:stopPropagation="true"
+                                                class="bg-ctp-mauve text-ctp-base text-xs font-semibold px-3 py-1 rounded hover:opacity-90 transition-opacity">
+                                            Save
+                                        </button>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+
+</div>
+
+@code {
+    private List<KnowledgeEntry> _entries = [];
+    private bool _showForm = false;
+    private bool _saving = false;
+    private string _searchQuery = string.Empty;
+    private List<KnowledgeEntry>? _searchResults = null;
+    private bool _searching = false;
+    private bool _showUpload = false;
+    private IBrowserFile? _selectedFile = null;
+    private bool _uploading = false;
+    private string _uploadError = string.Empty;
+    private KnowledgeEntryForm _form = new();
+    private Guid? _expandedId = null;
+    private Guid? _editingId = null;
+    private string _editTitle = string.Empty;
+    private string _editContent = string.Empty;
+    private string _editSource = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _entries = await KnowledgeService.GetAllAsync();
+    }
+
+    private async Task HandleCreate()
+    {
+        _saving = true;
+
+        var result = await EmbeddingGenerator.GenerateAsync([_form.Content]);
+        var vector = result[0].Vector.ToArray();
+
+        await KnowledgeService.CreateAsync(new KnowledgeEntry
+        {
+            Title = _form.Title,
+            Content = _form.Content,
+            Source = _form.Source,
+            Embedding = vector,
+        });
+
+        _entries = await KnowledgeService.GetAllAsync();
+        _form = new();
+        _showForm = false;
+        _saving = false;
+    }
+
+    private async Task HandleSearch()
+    {
+        if (string.IsNullOrWhiteSpace(_searchQuery)) return;
+        _searching = true;
+        var result = await EmbeddingGenerator.GenerateAsync([_searchQuery]);
+        _searchResults = await KnowledgeService.SearchAsync(result[0].Vector.ToArray());
+        _searching = false;
+    }
+
+    private void ClearSearch()
+    {
+        _searchQuery = string.Empty;
+        _searchResults = null;
+    }
+
+    private void HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        _selectedFile = e.File;
+    }
+
+    private async Task HandleUpload()
+    {
+        if (_selectedFile is null) return;
+        _uploading = true;
+        _uploadError = string.Empty;
+
+        try
+        {
+            var stream = _selectedFile.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024);
+            var text = await DocumentExtractor.ExtractTextAsync(stream, _selectedFile.Name);
+
+            var result = await EmbeddingGenerator.GenerateAsync([text]);
+            var vector = result[0].Vector.ToArray();
+
+            await KnowledgeService.CreateAsync(new KnowledgeEntry
+            {
+                Title = Path.GetFileNameWithoutExtension(_selectedFile.Name),
+                Content = text,
+                Source = _selectedFile.Name,
+                Embedding = vector,
+            });
+
+            _entries = await KnowledgeService.GetAllAsync();
+            _selectedFile = null;
+            _showUpload = false;
+        }
+        catch (Exception ex)
+        {
+            _uploadError = $"Failed to process document: {ex.Message}";
+        }
+        finally
+        {
+            _uploading = false;
+        }
+    }
+
+    private void ToggleExpand(Guid id)
+    {
+        _expandedId = _expandedId == id ? null : id;
+        _editingId = null;
+    }
+
+    private void StartEdit(KnowledgeEntry entry)
+    {
+        _editingId = entry.Id;
+        _editTitle = entry.Title;
+        _editContent = entry.Content;
+        _editSource = entry.Source ?? string.Empty;
+    }
+
+    private async Task SaveEdit(KnowledgeEntry entry)
+    {
+        entry.Title = _editTitle;
+        entry.Content = _editContent;
+        entry.Source = string.IsNullOrWhiteSpace(_editSource) ? null : _editSource;
+        await KnowledgeService.UpdateAsync(entry);
+        _entries = await KnowledgeService.GetAllAsync();
+        _editingId = null;
+        _expandedId = null;
+    }
+
+    private sealed class KnowledgeEntryForm
+    {
+        [Required] public string Title { get; set; } = string.Empty;
+        [Required] public string Content { get; set; } = string.Empty;
+        public string? Source { get; set; }
+    }
+}

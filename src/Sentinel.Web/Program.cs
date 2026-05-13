@@ -1,7 +1,11 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.AI;
+using OpenAI;
+using Sentinel.Application;
 using Sentinel.Infrastructure;
 using Sentinel.Infrastructure.Identity;
+using Sentinel.Infrastructure.Services;
 using Sentinel.Web.Components;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -34,6 +38,16 @@ builder.Services.ConfigureApplicationCookie(options =>
     options.LogoutPath = "/logout";
     options.AccessDeniedPath = "/login";
 });
+
+builder.Services.AddScoped<IRunbookService, RunbookService>();
+builder.Services.AddScoped<IIncidentService, IncidentService>();
+builder.Services.AddScoped<IKnowledgeService, KnowledgeService>();
+builder.Services.AddScoped<IDocumentExtractor, DocumentExtractorService>();
+
+var openAIClient = new OpenAIClient(builder.Configuration["OpenAI:ApiKey"]!);
+builder.Services.AddSingleton<IEmbeddingGenerator<string, Embedding<float>>>(
+    openAIClient.GetEmbeddingClient("text-embedding-3-small").AsIEmbeddingGenerator());
+builder.Services.AddSingleton<IChatClient>(openAIClient.GetChatClient("gpt-4o-mini").AsIChatClient());
 
 var app = builder.Build();
 

@@ -1,16 +1,183 @@
 @page "/incidents"
-@attribute [Authorize]
 @using Microsoft.AspNetCore.Authorization
+  
 @using Sentinel.Web.Components.Shared
+@rendermode InteractiveServer
+  @attribute [Authorize]
+  @inject IIncidentService IncidentService
 
-<PageTitle>Sentinel — Incidents</PageTitle>
+  <PageHeader Title="Incidents" />
 
-<div class="space-y-6">
-
-    <PageHeader Title="Incidents"/>
+  <div class="space-y-4">
+      <div class="flex justify-between items-center">
+          <p class="text-ctp-muted text-sm">@_incidents.Count incident(s)</p>
+          <button @onclick="() => _showForm = !_showForm"
+                  class="bg-ctp-mauve text-ctp-base text-sm font-semibold px-4 py-2 rounded hover:opacity-90 transition-opacity">
+              New Incident
+          </button>
+      </div>
   
-    <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-8 text-center">
-        <p class="text-ctp-muted text-sm">No active incidents.</p>
-    </div>
+      @if (_showForm)
+      {
+          <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-6">
+              <h2 class="text-ctp-text font-semibold mb-4">New Incident</h2>
+              <EditForm Model="_form" OnValidSubmit="HandleCreate" class="space-y-4">
+                  <DataAnnotationsValidator />
+
+                  <div class="space-y-1">
+                      <label class="text-ctp-subtle text-sm">Title</label>
+                      <InputText @bind-Value="_form.Title"
+                                 class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve" />
+                      <ValidationMessage For="() => _form.Title" class="text-ctp-red text-xs" />
+                  </div>
+
+                  <div class="space-y-1">
+                      <label class="text-ctp-subtle text-sm">Description</label>
+                      <InputTextArea @bind-Value="_form.Description" rows="3"
+                                    class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve resize-none" />
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-4">
+                      <div class="space-y-1">
+                          <label class="text-ctp-subtle text-sm">Severity</label>
+                          <InputSelect @bind-Value="_form.Severity"
+                                       class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve">
+                              @foreach (var severity in Enum.GetValues<IncidentSeverity>())
+                              {
+                                  <option value="@severity">@severity</option>
+                              }
+                          </InputSelect>
+                      </div>
+                      <div class="space-y-1">
+                          <label class="text-ctp-subtle text-sm">Status</label>
+                          <InputSelect @bind-Value="_form.Status"
+                                       class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve">
+                              @foreach (var status in Enum.GetValues<IncidentStatus>())
+                              {
+                                  <option value="@status">@status</option>
+                              }
+                          </InputSelect>
+                      </div>
+                  </div>
+
+                  <div class="flex gap-2 justify-end">
+                      <button type="button" @onclick="() => _showForm = false"
+                              class="text-ctp-muted text-sm px-4 py-2 rounded hover:bg-ctp-surface transition-colors">
+                          Cancel
+                      </button>
+                      <button type="submit"
+                              class="bg-ctp-mauve text-ctp-base text-sm font-semibold px-4 py-2 rounded hover:opacity-90 transition-opacity">
+                          Create
+                      </button>
+                  </div>
+              </EditForm>
+          </div>
+      }
+
+      @if (_incidents.Count == 0)
+      {
+          <p class="text-ctp-muted text-sm">No incidents. Good sign!</p>
+      }
+      else
+      {
+          <div class="space-y-2">
+              @foreach (var incident in _incidents)
+              {
+                  <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-4 space-y-3">
+                      <div class="flex justify-between items-start">
+                          <div>
+                              <p class="text-ctp-text font-medium">@incident.Title</p>
+                              @if (!string.IsNullOrEmpty(incident.Description))
+                              {
+                                  <p class="text-ctp-muted text-xs mt-1">@incident.Description</p>
+                              }
+                              <p class="text-ctp-overlay text-xs mt-1">Opened @incident.CreatedAt.ToString("MMM d, yyyy")</p>
+                              @if (incident.ResolvedAt.HasValue)
+                              {
+                                  <p class="text-ctp-green text-xs">Resolved @incident.ResolvedAt.Value.ToString("MMM d, yyyy")</p>
+                              }
+                          </div>
+                          <div class="flex flex-col items-end gap-2">
+                              <div class="flex gap-2">
+                                  <span class="text-xs px-2 py-1 rounded @SeverityClass(incident.Severity)">@incident.Severity</span>
+                                  <span class="text-xs px-2 py-1 rounded @StatusClass(incident.Status)">@incident.Status</span>
+                              </div>
+                              @if (incident.Status == IncidentStatus.Open || incident.Status == IncidentStatus.Investigating)
+                              {
+                                  <button @onclick="() => MarkResolved(incident.Id)"
+                                          class="text-xs text-ctp-green hover:underline">
+                                      Mark as Resolved
+                                  </button>
+                              }
+                          </div>
+                      </div>
+                  </div>
+
+              }
+          </div>
+      }
+  </div>
+
+  @code {
+      private List<Incident> _incidents = [];
+      private bool _showForm = false;
+      private CreateIncidentForm _form = new();
+
+      protected override async Task OnInitializedAsync()
+      {
+          _incidents = await IncidentService.GetAllAsync();
+      }
+
+      private async Task HandleCreate()
+      {
+          await IncidentService.CreateAsync(new Incident
+          {
+              Title = _form.Title,
+              Description = _form.Description,
+              Severity = _form.Severity,
+              Status = _form.Status,
+          });
+          _incidents = await IncidentService.GetAllAsync();
+          _form = new();
+          _showForm = false;
+      }
+      
+      private async Task MarkResolved(Guid id)
+      {
+          var incident = _incidents.FirstOrDefault(i => i.Id == id);
+          if (incident is null) return;
+
+          incident.Status = IncidentStatus.Resolved;
+          incident.ResolvedAt = DateTime.UtcNow;
+          await IncidentService.UpdateAsync(incident);
+          _incidents = await IncidentService.GetAllAsync();
+      }
+            
+      
+      private static string SeverityClass(IncidentSeverity severity) => severity switch
+      {
+          IncidentSeverity.Critical => "bg-ctp-red text-ctp-base",
+          IncidentSeverity.High     => "bg-ctp-peach text-ctp-base",
+          IncidentSeverity.Medium   => "bg-ctp-yellow text-ctp-base",
+          IncidentSeverity.Low      => "bg-ctp-green text-ctp-base",
+          _                         => "bg-ctp-surface text-ctp-subtle",
+      };
   
-</div>
+      private static string StatusClass(IncidentStatus status) => status switch
+      {
+          IncidentStatus.Open          => "bg-ctp-red text-ctp-base",
+          IncidentStatus.Investigating => "bg-ctp-yellow text-ctp-base",
+          IncidentStatus.Resolved      => "bg-ctp-green text-ctp-base",
+          IncidentStatus.Closed        => "bg-ctp-surface text-ctp-muted",
+          _                            => "bg-ctp-surface text-ctp-subtle",
+      };
+
+
+      private sealed class CreateIncidentForm
+      {
+          [Required] public string Title { get; set; } = string.Empty;
+          public string? Description { get; set; }
+          public IncidentSeverity Severity { get; set; } = IncidentSeverity.Medium;
+          public IncidentStatus Status { get; set; } = IncidentStatus.Open;
+      }
+  }

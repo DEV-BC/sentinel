@@ -1,0 +1,159 @@
+@using Microsoft.Extensions.AI
+  @rendermode InteractiveServer
+  @inject IChatClient ChatClient
+  @inject IEmbeddingGenerator<string, Embedding<float>> EmbeddingGenerator
+  @inject IKnowledgeService KnowledgeService
+  @inject IJSRuntime JS
+
+  <div class="flex flex-col h-full">
+  
+      <div class="flex-1 overflow-y-auto px-3 py-3 space-y-3" @ref="_chatContainer">
+
+          @if (!_history.Any() && string.IsNullOrEmpty(_currentQuestion) && !_thinking)
+          {
+              <p class="text-ctp-muted text-sm">Ask me anything about your infrastructure…</p>
+          }
+
+          @if (_history.Any())
+          {
+              <div class="flex justify-end">
+                  <button @onclick="ClearConversation"
+                          class="text-ctp-overlay text-xs hover:text-ctp-muted transition-colors">
+                      Clear conversation
+                  </button>
+              </div>
+          }
+
+          @foreach (var exchange in _history)
+          {
+              <div class="bg-ctp-surface rounded p-3">
+                  <p class="text-ctp-subtle text-xs mb-1">You</p>
+                  <p class="text-ctp-text text-sm">@exchange.Question</p>
+              </div>
+              <div class="bg-ctp-mantle rounded p-3">
+                  <p class="text-ctp-subtle text-xs mb-1">Sentinel AI</p>
+                  <p class="text-ctp-text text-sm">@exchange.Answer</p>
+              </div>
+          }
+  
+          @if (!string.IsNullOrEmpty(_currentQuestion))
+          {
+              <div class="bg-ctp-surface rounded p-3">
+                  <p class="text-ctp-subtle text-xs mb-1">You</p>
+                  <p class="text-ctp-text text-sm">@_currentQuestion</p>
+              </div>
+          }
+
+          @if (_thinking)
+          {
+              <p class="text-ctp-muted text-sm animate-pulse">Thinking…</p>
+          }
+
+          @if (_streaming || !string.IsNullOrEmpty(_currentAnswer))
+          {
+              <div class="bg-ctp-mantle rounded p-3">
+                  <p class="text-ctp-subtle text-xs mb-1">Sentinel AI</p>
+                  <p class="text-ctp-text text-sm">
+                      @_currentAnswer@if (_streaming)
+                      {<span class="animate-pulse text-ctp-mauve">▌</span>}
+                  </p>
+              </div>
+              @if (!_streaming && _context.Count > 0)
+              {
+                  <div class="border-t border-ctp-surface pt-2">
+                      <p class="text-ctp-overlay text-xs mb-1">Sources used:</p>
+                      @foreach (var entry in _context)
+                      {
+                          <p class="text-ctp-teal text-xs">• @entry.Title</p>
+                      }
+                  </div>
+              }
+          }
+
+      </div>
+
+      <div class="px-3 pb-3 border-t border-ctp-surface pt-3 space-y-2">
+          <InputTextArea @bind-Value="_question" rows="2" placeholder="Ask a question…"
+                         class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2
+  text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve resize-none" />
+          <button @onclick="HandleAsk" disabled="@(_thinking || _streaming)"
+                  class="w-full bg-ctp-mauve text-ctp-base text-sm font-semibold py-2 rounded hover:opacity-90
+   transition-opacity disabled:opacity-50">
+              @(_thinking ? "Thinking…" : _streaming ? "Responding…" : "Ask")
+          </button>
+      </div>
+
+  </div>
+
+  @code {
+      private record Exchange(string Question, string Answer);
+
+      private ElementReference _chatContainer;
+      private string _question = string.Empty;
+      private string _currentQuestion = string.Empty;
+      private string _currentAnswer = string.Empty;
+      private bool _thinking = false;
+      private bool _streaming = false;
+      private List<Exchange> _history = [];
+      private List<KnowledgeEntry> _context = [];
+
+      private async Task HandleAsk()
+      {
+          if (string.IsNullOrWhiteSpace(_question)) return;
+          _thinking = true;
+          _currentQuestion = _question;
+          _question = string.Empty;
+
+          StateHasChanged();
+          await JS.InvokeVoidAsync("scrollToBottom", _chatContainer);
+
+          var embeddings = await EmbeddingGenerator.GenerateAsync([_currentQuestion]);
+          _context = await KnowledgeService.SearchAsync(embeddings[0].Vector.ToArray(), limit: 3);
+
+          var contextText = _context.Count > 0
+              ? string.Join("\n\n", _context.Select(e => $"## {e.Title}\n{e.Content}"))
+              : "No relevant knowledge base entries found.";
+
+          var systemPrompt = $"""
+              You are an ops assistant for Sentinel, an infrastructure knowledge base.
+              Answer the user's question based on the following knowledge base entries.
+              If the answer isn't in the provided context, say so clearly. Be concise.
+
+              {contextText}
+              """;
+  
+          var messages = new List<ChatMessage> { new ChatMessage(ChatRole.System, systemPrompt) };
+          foreach (var ex in _history)
+          {
+              messages.Add(new ChatMessage(ChatRole.User, ex.Question));
+              messages.Add(new ChatMessage(ChatRole.Assistant, ex.Answer));
+          }
+          messages.Add(new ChatMessage(ChatRole.User, _currentQuestion));
+
+          _currentAnswer = string.Empty;
+          _thinking = false;
+          _streaming = true;
+
+          await foreach (var update in ChatClient.GetStreamingResponseAsync(messages))
+          {
+              _currentAnswer += update.Text;
+              StateHasChanged();
+          }
+
+          _history.Add(new Exchange(_currentQuestion, _currentAnswer));
+          _currentQuestion = string.Empty;
+          _currentAnswer = string.Empty;
+          _streaming = false;
+
+          StateHasChanged();
+          await JS.InvokeVoidAsync("scrollToBottom", _chatContainer);
+      }
+
+      private void ClearConversation()
+      {
+          _history.Clear();
+          _currentQuestion = string.Empty;
+          _currentAnswer = string.Empty;
+          _context.Clear();
+      }
+  }

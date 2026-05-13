@@ -1,16 +1,125 @@
-@page "/runbooks"
-@attribute [Authorize]
+ @page "/runbooks"
 @using Microsoft.AspNetCore.Authorization
+  
 @using Sentinel.Web.Components.Shared
+@attribute [Authorize]
+  @rendermode InteractiveServer
+  @inject IRunbookService RunbookService
 
-<PageTitle>Sentinel — Runbooks</PageTitle>
-
-<div class="space-y-6">
+  <PageTitle>Sentinel — Runbooks</PageTitle>
   
-    <PageHeader Title="Runbooks"/>
+  <div class="space-y-6">
 
-    <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-8 text-center">
-        <p class="text-ctp-muted text-sm">No runbooks yet.</p>
-    </div>
-  
-</div>
+      <div class="flex items-center justify-between">
+          <PageHeader Title="Runbooks" />
+          <button @onclick="() => showForm = !showForm"
+                  class="bg-ctp-mauve text-ctp-base text-sm font-semibold px-4 py-2 rounded hover:opacity-90 transition-opacity">
+              @(showForm ? "Cancel" : "New Runbook")
+          </button>
+      </div>
+
+      @if (showForm)                                                                                                                                                                       
+      {
+          <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-6">
+              <EditForm Model="form" OnValidSubmit="HandleCreate" FormName="new-runbook">
+                  <DataAnnotationsValidator />
+                  <div class="space-y-4">
+
+                      <div class="space-y-1">
+                          <label class="text-ctp-subtle text-sm">Title</label>
+                          <InputText @bind-Value="form.Title"
+                                     class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve" />
+                          <ValidationMessage For="() => form.Title" class="text-ctp-red text-xs" />
+                      </div>
+
+                      <div class="space-y-1">
+                          <label class="text-ctp-subtle text-sm">Content</label>
+                          <InputTextArea @bind-Value="form.Content" rows="4"                                                                                                               
+                                         class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve resize-none" />
+                          <ValidationMessage For="() => form.Content" class="text-ctp-red text-xs" />
+                      </div>
+
+                      <div class="space-y-1">
+                          <label class="text-ctp-subtle text-sm">Author</label>                                                                                                            
+                          <InputText @bind-Value="form.Author"
+                                     class="w-full bg-ctp-surface border border-ctp-overlay rounded px-3 py-2 text-ctp-text text-sm focus:outline-none focus:border-ctp-mauve" />
+                      </div>
+
+                      <button type="submit"
+                              class="bg-ctp-mauve text-ctp-base text-sm font-semibold px-4 py-2 rounded hover:opacity-90 transition-opacity">
+                          Save Runbook
+                      </button>
+
+                  </div>
+              </EditForm>                                                                                                                                                                  
+          </div>
+      }
+
+      @if (runbooks.Count == 0)
+      {
+          <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-8 text-center">
+              <p class="text-ctp-muted text-sm">No runbooks yet. Create your first one.</p>
+          </div>
+      }
+      else
+      {
+          <div class="space-y-3">
+              @foreach (var runbook in runbooks)
+              {
+                  <div class="bg-ctp-mantle border border-ctp-surface rounded-lg p-4">
+                      <div class="flex items-center justify-between">
+                          <p class="text-ctp-text font-semibold">@runbook.Title</p>
+                          <span class="text-xs px-2 py-0.5 rounded-full @StatusColor(runbook.Status)">
+                              @runbook.Status
+                          </span>
+                      </div>
+                      @if (!string.IsNullOrEmpty(runbook.Author))
+                      {                                                                                                                                                                    
+                          <p class="text-ctp-muted text-xs mt-1">by @runbook.Author</p>
+                      }
+                      <p class="text-ctp-muted text-xs mt-1">@runbook.CreatedAt.ToString("MMM d, yyyy")</p>
+                  </div>
+              }
+          </div>
+      }
+
+  </div>
+
+  @code {
+      private List<Runbook> runbooks = new();
+      private CreateRunbookForm form = new();
+      private bool showForm;
+
+      protected override async Task OnInitializedAsync()
+      {
+          runbooks = await RunbookService.GetAllAsync();
+      }
+
+      private async Task HandleCreate()
+      {
+          await RunbookService.CreateAsync(new Runbook
+          {
+              Title   = form.Title,
+              Content = form.Content,
+              Author  = form.Author
+          });
+
+          form = new();                                                                                                                                                                    
+          showForm = false;
+          runbooks = await RunbookService.GetAllAsync();
+      }
+
+      private static string StatusColor(RunbookStatus status) => status switch
+      {
+          RunbookStatus.Active     => "bg-ctp-green text-ctp-base",
+          RunbookStatus.Deprecated => "bg-ctp-overlay text-ctp-muted",                                                                                                                     
+          _                        => "bg-ctp-yellow text-ctp-base",
+      };
+
+      private sealed class CreateRunbookForm
+      {
+          [Required] public string Title   { get; set; } = string.Empty;
+          [Required] public string Content { get; set; } = string.Empty;
+          public string Author             { get; set; } = string.Empty;
+      }
+  }
