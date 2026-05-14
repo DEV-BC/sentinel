@@ -69,7 +69,7 @@ docker-compose down
 A live instance is deployed at:
 
 ```
-https://sentinel.azurewebsites.net
+sentinel-fsfwf0a8hedggzb4.centralus-01.azurewebsites.net
 ```
 
 Contact the administrator to request access.
